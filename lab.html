@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>스킬투머니 실습실 · 2장</title>
+  <!-- Pyodide CDN: 브라우저 안에서 파이썬 코드 실행 엔진 -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <style>
+    /* CSS Reset & Variables */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif;
+    }
+
+    :root {
+      --bg-deep-navy: #070D1E;
+      --bg-navy: #0D1730;
+      --bg-card: rgba(22, 36, 71, 0.65);
+      --bg-card-hover: rgba(30, 49, 96, 0.85);
+      --border-color: rgba(212, 175, 55, 0.22);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+
+      --gold-primary: #D4AF37;
+      --gold-light: #FCE881;
+      --gold-deep: #AA820A;
+      --gold-gradient: linear-gradient(135deg, #FFF099 0%, #D4AF37 45%, #AA820A 100%);
+      --gold-glow: rgba(212, 175, 55, 0.25);
+
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --accent-blue: #38BDF8;
+      --accent-badge: #1E293B;
+
+      --editor-bg: #090E1D;
+      --editor-gutter-bg: #070B17;
+      --editor-border: rgba(212, 175, 55, 0.28);
+    }
+
+    body {
+      background-color: var(--bg-deep-navy);
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(26, 47, 98, 0.5) 0%, transparent 40%),
+        radial-gradient(circle at 85% 60%, rgba(212, 175, 55, 0.1) 0%, transparent 45%),
+        radial-gradient(circle at 50% 90%, rgba(18, 30, 60, 0.7) 0%, transparent 50%);
+      color: var(--text-main);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 맨 위 제목 띠 (Top Bar) */
+    .lab-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: rgba(7, 13, 30, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .lab-topbar-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .lab-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lab-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(212, 175, 55, 0.14);
+      border: 1px solid var(--border-color);
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--gold-light);
+      letter-spacing: 0.5px;
+    }
+
+    .lab-main-title {
+      font-size: 20px;
+      font-weight: 800;
+      background: var(--gold-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .lab-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-btn-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .topbar-btn-link:hover {
+      background: rgba(212, 175, 55, 0.12);
+      border-color: var(--border-color);
+      color: var(--gold-light);
+    }
+
+    /* 2분할 메인 레이아웃 (좌: 웹앱 화면 / 우: 파이썬 코드) */
+    .lab-main-layout {
+      flex: 1;
+      width: 100%;
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* 공통 패널 스타일 */
+    .lab-pane {
+      background: rgba(13, 23, 48, 0.55);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .pane-header {
+      padding: 16px 22px;
+      background: rgba(7, 13, 30, 0.85);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .pane-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .window-dots {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .window-dots .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-red { background: #FF5F56; }
+    .dot-yellow { background: #FFBD2E; }
+    .dot-green { background: #27C93F; }
+
+    .pane-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.3px;
+    }
+
+    .pane-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .pane-badge.live-badge {
+      background: rgba(39, 201, 63, 0.15);
+      border: 1px solid rgba(39, 201, 63, 0.35);
+      color: #86EFAC;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .live-dot-pulse {
+      width: 6px;
+      height: 6px;
+      background: #27C93F;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #27C93F;
+    }
+
+    .pane-badge.code-badge {
+      background: rgba(212, 175, 55, 0.15);
+      border: 1px solid var(--border-color);
+      color: var(--gold-light);
+    }
+
+    .pane-content {
+      padding: 24px;
+      flex: 1;
+    }
+
+    /* ==========================================================================
+       [왼쪽] 웹앱 화면 (index.html의 디자인 그대로 적용)
+       ========================================================================== */
+    .webapp-frame {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* 머리글 (Header & Nav) */
+    .webapp-header-box {
+      background: rgba(7, 13, 30, 0.75);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .brand-logo-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--gold-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #070D1E;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: 0 4px 12px var(--gold-glow);
+    }
+
+    .brand-logo-text {
+      font-size: 21px;
+      font-weight: 800;
+      background: var(--gold-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .webapp-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .webapp-nav-pill {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .webapp-nav-pill.active {
+      color: var(--gold-light);
+      border-color: var(--border-color);
+      background: rgba(212, 175, 55, 0.12);
+      font-weight: 700;
+    }
+
+    /* 머리글 소개 영역 (Hero Brand Title & Intro) */
+    .webapp-hero-intro {
+      text-align: center;
+      padding: 6px 10px 10px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      background: rgba(212, 175, 55, 0.12);
+      border: 1px solid var(--border-color);
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold-light);
+      margin-bottom: 14px;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--gold-primary);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--gold-primary);
+    }
+
+    .hero-brand-title {
+      font-size: clamp(26px, 3.8vw, 36px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      background: var(--gold-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 4px 20px rgba(212, 175, 55, 0.2);
+    }
+
+    .hero-one-liner {
+      font-size: clamp(15px, 2.2vw, 18px);
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      letter-spacing: -0.4px;
+    }
+
+    /* 강좌 카드 (Featured Course Card) */
+    .featured-course-card {
+      background: linear-gradient(145deg, rgba(23, 38, 77, 0.92) 0%, rgba(12, 21, 46, 0.96) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      border-radius: 18px;
+      padding: 26px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 24px rgba(212, 175, 55, 0.1);
+    }
+
+    .featured-course-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--gold-gradient);
+    }
+
+    .featured-badge-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .featured-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #FCA5A5;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 50px;
+    }
+
+    .badge-live-dot {
+      width: 6px;
+      height: 6px;
+      background: #EF4444;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #EF4444;
+    }
+
+    .featured-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-light);
+      background: rgba(212, 175, 55, 0.12);
+      border: 1px solid var(--border-color);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .featured-course-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      letter-spacing: -0.4px;
+      transition: color 0.3s ease;
+    }
+
+    .course-sub-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sub-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #E2E8F0;
+    }
+
+    .sub-badge.accent-gold {
+      background: rgba(212, 175, 55, 0.14);
+      border-color: rgba(212, 175, 55, 0.35);
+      color: var(--gold-light);
+    }
+
+    .featured-course-summary {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .featured-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      background: rgba(7, 13, 30, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .info-item-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .info-item-val {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .info-item-val.highlight-price {
+      font-size: 18px;
+      font-weight: 900;
+      background: var(--gold-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      transition: all 0.3s ease;
+    }
+
+    .info-val-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .seat-info {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gold-light);
+      margin-top: 2px;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+    }
+
+    .dday-info {
+      font-size: 11px;
+      font-weight: 700;
+      color: #38BDF8;
+      margin-top: 2px;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+    }
+
+    .price-line-wrap {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+
+    .original-price {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-decoration: line-through;
+      margin-right: 2px;
+    }
+
+    .discount-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      background: rgba(34, 197, 94, 0.16);
+      border: 1px solid rgba(34, 197, 94, 0.45);
+      color: #4ADE80;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      margin-left: 3px;
+      vertical-align: middle;
+    }
+
+    .btn-apply-action {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      border-radius: 10px;
+      background: var(--gold-gradient);
+      color: #070D1E;
+      text-decoration: none;
+      box-shadow: 0 4px 18px var(--gold-glow);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-apply-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.45);
+    }
+
+    /* 수강료 계산기 (인원 칸, [계산하기], 결과 자리) */
+    .fee-calculator-wrap {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: rgba(7, 13, 30, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .calc-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .calc-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-light);
+      white-space: nowrap;
+      min-width: 44px;
+      transition: all 0.25s ease;
+    }
+
+    .calc-input {
+      flex: 1;
+      min-width: 60px;
+      height: 38px;
+      padding: 0 12px;
+      background: rgba(13, 23, 48, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .calc-input:focus {
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+    }
+
+    .btn-calc {
+      height: 38px;
+      padding: 0 18px;
+      background: #17264D;
+      border: 1px solid rgba(212, 175, 55, 0.4);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-calc:hover {
+      background: #1E3160;
+      border-color: var(--gold-primary);
+      color: var(--gold-light);
+    }
+
+    .btn-calc:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .calc-result {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-light);
+      text-align: right;
+      letter-spacing: -0.3px;
+      line-height: 1.7;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(212, 175, 55, 0.25);
+    }
+
+    .calc-result:empty {
+      display: none;
+    }
+
+    .calc-result .result-line {
+      margin: 3px 0;
+      word-break: break-all;
+    }
+
+    /* ==========================================================================
+       [오른쪽] 이 웹앱을 움직이는 파이썬 코드
+       ========================================================================== */
+    .editor-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      height: 100%;
+    }
+
+    /* 상단 탭 및 보조 도구 */
+    .editor-tab-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #080D1A;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 8px 14px;
+    }
+
+    .editor-file-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold-light);
+    }
+
+    .python-badge-icon {
+      font-size: 16px;
+    }
+
+    .editor-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .tool-btn:hover {
+      background: rgba(212, 175, 55, 0.15);
+      border-color: var(--border-color);
+      color: var(--gold-light);
+    }
+
+    /* 코드를 쓰는 큰 칸 (어두운 배경, 고정폭 글꼴, 왼쪽에 줄 번호) */
+    .code-box-container {
+      background: var(--editor-bg);
+      border: 1px solid var(--editor-border);
+      border-radius: 14px;
+      display: flex;
+      overflow: hidden;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6), 0 4px 20px rgba(0, 0, 0, 0.3);
+      min-height: 380px;
+      position: relative;
+    }
+
+    /* 줄 번호 영역 */
+    .code-line-numbers {
+      width: 48px;
+      background: var(--editor-gutter-bg);
+      border-right: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 18px 0;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: right;
+      font-family: 'Fira Code', Consolas, Monaco, 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 26px;
+      color: var(--text-dim);
+      overflow: hidden;
+    }
+
+    .code-line-numbers span {
+      display: block;
+      padding-right: 12px;
+    }
+
+    /* 실제 코드 텍스트 영역 */
+    .code-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #F1F5F9;
+      font-family: 'Fira Code', Consolas, Monaco, 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 26px;
+      padding: 18px 18px;
+      resize: vertical;
+      white-space: pre;
+      overflow-x: auto;
+      overflow-y: auto;
+      tab-size: 4;
+      -moz-tab-size: 4;
+      min-height: 380px;
+    }
+
+    .code-textarea::selection {
+      background: rgba(212, 175, 55, 0.35);
+      color: #FFFFFF;
+    }
+
+    /* [▶ 웹앱에 적용하기] & [처음 코드로] 버튼 및 상태 영역 */
+    .editor-action-area {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-apply-code {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex: 2;
+      min-width: 200px;
+      padding: 15px 22px;
+      background: var(--gold-gradient);
+      color: #070D1E;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px var(--gold-glow);
+      transition: all 0.25s ease;
+    }
+
+    .btn-apply-code:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 26px rgba(212, 175, 55, 0.45);
+    }
+
+    .btn-apply-code:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-apply-code:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-apply-icon {
+      font-size: 15px;
+    }
+
+    /* [처음 코드로] 버튼 */
+    .btn-reset-code {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 130px;
+      padding: 15px 18px;
+      background: rgba(23, 38, 77, 0.85);
+      color: var(--gold-light);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .btn-reset-code:hover {
+      background: rgba(30, 49, 96, 0.95);
+      border-color: var(--gold-primary);
+      color: #FFFFFF;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    /* [⬇ 코랩 노트북(.ipynb)으로 받기] 버튼 */
+    .btn-colab-main {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1.5;
+      min-width: 230px;
+      padding: 15px 18px;
+      background: rgba(245, 158, 11, 0.16);
+      color: #FDE68A;
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .btn-colab-main:hover {
+      background: rgba(245, 158, 11, 0.3);
+      border-color: #FBBF24;
+      color: #FFFFFF;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-colab-main:active {
+      transform: translateY(0);
+    }
+
+    /* 상태 및 맞춤형 오류/성공/안내 표시 박스 */
+    .py-status-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      width: 100%;
+      transition: all 0.3s ease;
+      word-break: keep-all;
+    }
+
+    .py-status-box.loading {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #7DD3FC;
+      font-weight: 600;
+    }
+
+    /* 성공: 초록 글씨 */
+    .py-status-box.success {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ADE80;
+      font-weight: 700;
+    }
+
+    /* 오류: 빨간 글씨 */
+    .py-status-box.error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #F87171;
+      font-weight: 700;
+    }
+
+    /* 웹앱 변경 없음 / 미연결 / 안내: 주황 글씨 */
+    .py-status-box.unconnected {
+      background: rgba(245, 158, 11, 0.13);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #FBBF24;
+      font-weight: 600;
+    }
+
+    .py-status-box.running {
+      background: rgba(212, 175, 55, 0.18);
+      border: 1px solid var(--border-color);
+      color: var(--gold-light);
+      font-weight: 600;
+    }
+
+    .py-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+
+    .py-status-box.loading .py-status-dot {
+      background: #38BDF8;
+      box-shadow: 0 0 8px #38BDF8;
+      animation: pulse-dot 1.4s infinite;
+    }
+
+    .py-status-box.success .py-status-dot {
+      background: #22C55E;
+      box-shadow: 0 0 8px #22C55E;
+    }
+
+    .py-status-box.error .py-status-dot {
+      background: #EF4444;
+      box-shadow: 0 0 8px #EF4444;
+    }
+
+    .py-status-box.unconnected .py-status-dot {
+      background: #F59E0B;
+      box-shadow: 0 0 8px #F59E0B;
+    }
+
+    .py-status-box.running .py-status-dot {
+      background: #D4AF37;
+      box-shadow: 0 0 8px #D4AF37;
+      animation: pulse-dot 0.6s infinite;
+    }
+
+    .py-status-msg-wrap {
+      flex: 1;
+    }
+
+    /* 주황 안내문 안의 [⬇ 코랩 노트북으로 받기] 인라인 버튼 */
+    .btn-colab-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(245, 158, 11, 0.28);
+      border: 1px solid rgba(245, 158, 11, 0.7);
+      color: #FFF099;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 2px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: underline;
+      transition: all 0.2s ease;
+      margin: 0 4px;
+      vertical-align: middle;
+    }
+
+    .btn-colab-link:hover {
+      background: rgba(245, 158, 11, 0.45);
+      border-color: #FBBF24;
+      color: #FFFFFF;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+    }
+
+    .unconnected-var-pill {
+      display: inline-block;
+      padding: 1px 7px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #FFF099;
+      font-family: 'Fira Code', Consolas, monospace;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.75); }
+    }
+
+    /* 반응형 레이아웃 (휴대폰처럼 좁은 화면: 위아래로 배치) */
+    @media (max-width: 960px) {
+      .lab-main-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 16px;
+      }
+
+      .lab-topbar-inner {
+        padding: 0 16px;
+        height: 56px;
+      }
+
+      .lab-main-title {
+        font-size: 17px;
+      }
+
+      .lab-badge {
+        font-size: 11px;
+        padding: 3px 9px;
+      }
+
+      .featured-course-card {
+        padding: 20px 18px;
+      }
+
+      .featured-info-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .info-item {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 6px;
+      }
+
+      .info-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+
+      .info-val-group {
+        align-items: flex-end;
+      }
+
+      .price-line-wrap {
+        justify-content: flex-end;
+      }
+
+      .code-box-container {
+        min-height: 300px;
+      }
+
+      .code-textarea {
+        min-height: 300px;
+        font-size: 13px;
+        padding: 14px 14px;
+      }
+
+      .code-line-numbers {
+        width: 42px;
+        font-size: 13px;
+        padding: 14px 0;
+      }
+
+      .action-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-apply-code, .btn-reset-code, .btn-colab-main {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 맨 위 제목 띠: "스킬투머니 실습실 · 2장" -->
+  <header class="lab-topbar">
+    <div class="lab-topbar-inner">
+      <div class="lab-title-group">
+        <span class="lab-badge">2장 실습</span>
+        <h1 class="lab-main-title">스킬투머니 실습실 &middot; 2장</h1>
+      </div>
+      <div class="lab-topbar-actions">
+        <a href="index.html" class="topbar-btn-link" title="메인 웹앱 페이지로 이동">
+          <span>🏠</span> 메인 웹앱
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. 화면 분할 레이아웃: 왼쪽(웹앱 화면), 오른쪽(파이썬 코드) - 모바일에서는 위아래 배치 -->
+  <main class="lab-main-layout">
+
+    <!-- [왼쪽] 웹앱 화면 -->
+    <section class="lab-pane">
+      <div class="pane-header">
+        <div class="pane-title-wrap">
+          <div class="window-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <h2 class="pane-title">웹앱 화면</h2>
+        </div>
+        <span class="pane-badge live-badge">
+          <span class="live-dot-pulse"></span>
+          실시간 연동
+        </span>
+      </div>
+
+      <div class="pane-content">
+        <div class="webapp-frame">
+          <!-- index.html의 머리글 -->
+          <div class="webapp-header-box">
+            <a href="index.html" class="brand-logo">
+              <div class="brand-logo-icon">S</div>
+              <span class="brand-logo-text">스킬투머니</span>
+            </a>
+            <div class="webapp-nav-links">
+              <span class="webapp-nav-pill active">원데이 강좌</span>
+              <span class="webapp-nav-pill">튜터 등록</span>
+            </div>
+          </div>
+
+          <!-- 머리글 소개 영역 (스킬투머니 & 한 줄 소개) -->
+          <div class="webapp-hero-intro">
+            <div class="hero-badge">
+              <span class="hero-badge-dot"></span>
+              원데이 완성 &middot; 실전 수익화 파이프라인
+            </div>
+            <h3 class="hero-brand-title">스킬투머니</h3>
+            <p class="hero-one-liner">배운 기술을 돈으로, 원데이 강좌 플랫폼</p>
+          </div>
+
+          <!-- index.html의 강좌 카드 & 수강료 계산기 -->
+          <div class="featured-course-card">
+            <div class="featured-badge-row">
+              <span class="featured-pill-badge">
+                <span class="badge-live-dot"></span>
+                모집 중 &middot; 선착순 마감 임박
+              </span>
+              <span class="featured-tag">원데이 집중 실습</span>
+            </div>
+
+            <!-- 카드 제목: cname 값으로 변경됨 -->
+            <h4 class="featured-course-name" id="courseTitle">AI 자동화 원데이 강좌</h4>
+            <div class="course-sub-tags">
+              <span class="sub-badge accent-gold">초보 환영</span>
+              <span class="sub-badge">2시간</span>
+            </div>
+            <p class="featured-course-summary">
+              복잡한 코딩 없이 ChatGPT와 최신 AI 툴로 반복 업무를 자동화하고, 이번 주말 바로 외주 부수입을 창출할 수 있는 실전 압축 클래스입니다.
+            </p>
+
+            <div class="featured-info-grid">
+              <div class="info-item">
+                <span class="info-item-label">📅 일시</span>
+                <div class="info-val-group">
+                  <span class="info-item-val">11월 7일 토요일 오후 2시</span>
+                  <span class="dday-info" id="courseDday">강좌까지 35일</span>
+                </div>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">👥 정원</span>
+                <span class="info-item-val">8명 (소수정예 밀착 코칭)</span>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">💳 수강료</span>
+                <div class="info-val-group">
+                  <div class="price-line-wrap">
+                    <span class="original-price" id="originalPrice">35,000원</span>
+                    <!-- 카드의 수강료: price 값으로 변경됨 -->
+                    <span class="info-item-val highlight-price" id="coursePrice">28,000원</span>
+                    <span class="discount-badge" id="discountBadge">20% 할인</span>
+                  </div>
+                  <span class="seat-info" id="seatInfo">정원 8명 &middot; 남은 자리 5석</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="btn-apply-action" onclick="alert('예약 신청 접수 준비 중입니다.');">
+              예약 신청하기
+            </button>
+
+            <!-- 수강료 계산기 (인원 칸, [계산하기], 결과 자리) -->
+            <div class="fee-calculator-wrap">
+              <div class="calc-input-row">
+                <!-- 이름표: input() 안의 문구로 바뀜 (예: '인원수: ' -> '인원수') -->
+                <label for="people" class="calc-label" id="calcLabel">인원</label>
+                <input type="number" id="people" class="calc-input" value="3" min="1">
+                <!-- [계산하기] 버튼 누르면 오른쪽 파이썬 코드 실행 -->
+                <button type="button" id="btn-calc" class="btn-calc" onclick="runPythonCode()">계산하기</button>
+              </div>
+              <!-- print()로 출력한 내용은 결과 자리에 줄 단위로 표시 -->
+              <div id="result" class="calc-result"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- [오른쪽] 이 웹앱을 움직이는 파이썬 코드 -->
+    <section class="lab-pane">
+      <div class="pane-header">
+        <div class="pane-title-wrap">
+          <span style="font-size: 18px;">🐍</span>
+          <h2 class="pane-title">이 웹앱을 움직이는 파이썬 코드</h2>
+        </div>
+        <span class="pane-badge code-badge">Python 3 · Pyodide</span>
+      </div>
+
+      <div class="pane-content">
+        <div class="editor-wrapper">
+          <!-- 에디터 파일 탭 및 도구 -->
+          <div class="editor-tab-bar">
+            <div class="editor-file-tab">
+              <span class="python-badge-icon">📄</span>
+              <span>calculate.py</span>
+            </div>
+            <div class="editor-tools">
+              <button type="button" class="tool-btn" onclick="downloadColabNotebook()" title="코랩 노트북(.ipynb)으로 다운로드">
+                ⬇ 코랩 파일
+              </button>
+              <button type="button" class="tool-btn" onclick="copyPythonCode()">📋 복사</button>
+              <button type="button" class="tool-btn" onclick="resetPythonCode()">↺ 처음 코드로</button>
+            </div>
+          </div>
+
+          <!-- 코드를 쓰는 큰 칸 (어두운 배경, 고정폭 글꼴, 왼쪽에 줄 번호) -->
+          <div class="code-box-container">
+            <div class="code-line-numbers" id="lineNumbers" aria-hidden="true"></div>
+            <textarea id="pythonCode" class="code-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">cname = "AI 자동화"
+price = 35000
+seat = 8
+booked = 3
+days = 35
+people = int(input("인원: "))
+
+if booked + people > seat:
+    print("남은 자리는 5석입니다")
+else:
+    # 1. 얼리버드 할인 (days 기준)
+    if days >= 14:
+        discount = 0.2
+        discount_name = "20% 할인"
+    elif days >= 7:
+        discount = 0.1
+        discount_name = "10% 할인"
+    else:
+        discount = 0
+        discount_name = ""
+
+    pay_price = int(price * (1 - discount))
+    total = pay_price * people
+
+    # 2. 단체 할인 (people이 4 이상이면 5000원 추가 할인)
+    group_discount = 0
+    if people >= 4:
+        group_discount = 5000
+        total = total - group_discount
+
+    print(cname, "강좌", people, "명 신청")
+    if discount > 0:
+        print("할인 적용:", discount_name)
+    if group_discount > 0:
+        print("할인 적용: 단체 5,000원 할인")
+    print("결제 금액:", total, "원")</textarea>
+          </div>
+
+          <!-- [▶ 웹앱에 적용하기], [처음 코드로], [⬇ 코랩 노트북(.ipynb)으로 받기] 버튼 및 상태 표시 -->
+          <div class="editor-action-area">
+            <div class="action-row">
+              <button type="button" class="btn-apply-code" id="btnApplyCode" onclick="runPythonCode()">
+                <span class="btn-apply-icon">▶</span> 웹앱에 적용하기
+              </button>
+              <!-- [처음 코드로] 버튼: 누르면 처음 코드로 되돌림 -->
+              <button type="button" class="btn-reset-code" id="btnResetCode" onclick="resetPythonCode()">
+                ↺ 처음 코드로
+              </button>
+              <!-- [⬇ 코랩 노트북(.ipynb)으로 받기] 버튼 -->
+              <button type="button" class="btn-colab-main" id="btnColabMain" onclick="downloadColabNotebook()">
+                ⬇ 코랩 노트북(.ipynb)으로 받기
+              </button>
+            </div>
+
+            <!-- 상태 및 맞춤형 안내 표시 (준비중: 파랑 / 성공: 초록 / 오류: 빨강 / 연결안내: 주황) -->
+            <div id="pyStatus" class="py-status-box loading">
+              <span class="py-status-dot"></span>
+              <div class="py-status-msg-wrap" id="pyStatusText">파이썬을 준비하고 있습니다...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. DOM 요소 및 상태 관리
+    // =========================================================================
+    const codeArea = document.getElementById('pythonCode');
+    const lineNumbers = document.getElementById('lineNumbers');
+    const peopleInput = document.getElementById('people');
+    const calcLabel = document.getElementById('calcLabel');
+    const courseTitle = document.getElementById('courseTitle');
+    const coursePrice = document.getElementById('coursePrice');
+    const courseDday = document.getElementById('courseDday');
+    const originalPrice = document.getElementById('originalPrice');
+    const discountBadge = document.getElementById('discountBadge');
+    const seatInfo = document.getElementById('seatInfo');
+    const resultElem = document.getElementById('result');
+    const pyStatus = document.getElementById('pyStatus');
+    const pyStatusText = document.getElementById('pyStatusText');
+    const btnApplyCode = document.getElementById('btnApplyCode');
+    const btnCalc = document.getElementById('btn-calc');
+
+    const INITIAL_CODE = `cname = "AI 자동화"
+price = 35000
+seat = 8
+booked = 3
+days = 35
+people = int(input("인원: "))
+
+if booked + people > seat:
+    print("남은 자리는 5석입니다")
+else:
+    # 1. 얼리버드 할인 (days 기준)
+    if days >= 14:
+        discount = 0.2
+        discount_name = "20% 할인"
+    elif days >= 7:
+        discount = 0.1
+        discount_name = "10% 할인"
+    else:
+        discount = 0
+        discount_name = ""
+
+    pay_price = int(price * (1 - discount))
+    total = pay_price * people
+
+    # 2. 단체 할인 (people이 4 이상이면 5000원 추가 할인)
+    group_discount = 0
+    if people >= 4:
+        group_discount = 5000
+        total = total - group_discount
+
+    print(cname, "강좌", people, "명 신청")
+    if discount > 0:
+        print("할인 적용:", discount_name)
+    if group_discount > 0:
+        print("할인 적용: 단체 5,000원 할인")
+    print("결제 금액:", total, "원")`;
+
+    // 웹앱과 직접 연결된 핵심 변수 목록
+    const CONNECTED_VARS = new Set([
+      'cname', 'price', 'people', 'total', 'seat', 'booked', 'remain',
+      'days', 'discount', 'discount_name', 'pay_price', 'group_discount', 'today', 'target'
+    ]);
+
+    let pyodideInstance = null;
+    let isPyodideReady = false;
+    let isPyodideLoading = false;
+
+    // 파이썬 상태 및 안내 표시 업데이트 헬퍼
+    function updatePyStatus(state, htmlContent) {
+      if (!pyStatus || !pyStatusText) return;
+      pyStatus.className = 'py-status-box ' + state;
+      pyStatusText.innerHTML = htmlContent;
+    }
+
+    // =========================================================================
+    // 2. Python input() & print()와 웹앱 UI 연동 브릿지 함수 (전역 등록)
+    // =========================================================================
+    let runtimeInputCallCount = 0;
+
+    // input("문구: ")의 문구를 인원 칸 앞 이름표로 업데이트
+    window.handlePythonInputPrompt = function(promptStr) {
+      if (promptStr === undefined || promptStr === null) return;
+      let cleanLabel = String(promptStr).trim();
+      // 끝의 콜론(: or ：) 및 공백 제거: 예) "인원: " -> "인원", "인원수: " -> "인원수"
+      cleanLabel = cleanLabel.replace(/[:：\s]+$/, '').trim();
+      if (cleanLabel && calcLabel) {
+        calcLabel.textContent = cleanLabel;
+      }
+    };
+
+    // input() 호출 시 왼쪽 인원 칸에 입력된 값을 문자열로 반환
+    window.getPythonInputValue = function() {
+      runtimeInputCallCount++;
+      if (!peopleInput) return "1";
+      const val = peopleInput.value.trim();
+      return (val !== "" && !isNaN(val)) ? val : "1";
+    };
+
+    // 카드 제목 포맷팅 ("○○ 원데이 강좌")
+    function formatCourseTitle(cname) {
+      if (!cname) return "원데이 강좌";
+      let s = String(cname).trim();
+      if (s.endsWith("원데이 강좌")) return s;
+      if (s.endsWith("원데이강좌")) return s.replace(/원데이강좌$/, "원데이 강좌");
+      if (s.endsWith("강좌")) return s.replace(/강좌$/, "원데이 강좌");
+      return s + " 원데이 강좌";
+    }
+
+    // 수강료 포맷팅 ("38,000원")
+    function formatCoursePrice(price) {
+      if (price === undefined || price === null) return "0원";
+      let num = Number(String(price).replace(/[^0-9.-]+/g, ""));
+      if (isNaN(num)) return String(price) + "원";
+      return num.toLocaleString() + "원";
+    }
+
+    // print() 출력 내용을 왼쪽 결과 자리에 줄 단위로 표시
+    function displayResult(output) {
+      if (!resultElem) return;
+      if (!output || !output.trim()) {
+        resultElem.style.display = 'none';
+        resultElem.innerHTML = '';
+        return;
+      }
+
+      resultElem.style.display = 'block';
+      const rawLines = output.split('\n');
+      if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') {
+        rawLines.pop();
+      }
+
+      const html = rawLines.map(line => {
+        const safeText = line
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        if (safeText.includes('남은 자리')) {
+          return `<div class="result-line" style="color: #EF4444; font-weight: 700;">${safeText}</div>`;
+        }
+        if (safeText.includes('할인 적용:')) {
+          const badgeText = safeText.replace(/할인 적용:\s*/, '').trim();
+          return `<div class="result-line" style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;"><span style="color: var(--text-dim); font-size: 13px;">할인 혜택:</span> <span class="discount-badge">${badgeText}</span></div>`;
+        }
+        if (safeText.includes('원래 금액:')) {
+          return `<div class="result-line" style="text-decoration: line-through; color: var(--text-dim); font-size: 13px;">${safeText}</div>`;
+        }
+        return `<div class="result-line">${safeText}</div>`;
+      }).join('');
+
+      resultElem.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 3. 오류 분석 및 맞춤 한국어 안내 생성기
+    //    (SyntaxError, NameError, TypeError, ValueError, IndentationError 등)
+    // =========================================================================
+    function parseAndFormatPythonError(err) {
+      const raw = String(err && (err.message || err) || '');
+
+      // 1. 몇 번째 줄인지 라인 번호 추출
+      let lineNo = null;
+      // File "<exec>", line 4 / File "<string>", line 4 / line 4, in <module>
+      const fileLineMatch = raw.match(/File\s+["'][^"']+["'],\s+line\s+(\d+)/i);
+      if (fileLineMatch) {
+        lineNo = parseInt(fileLineMatch[1], 10);
+      } else {
+        const lineMatch = raw.match(/\bline\s+(\d+)\b/i);
+        if (lineMatch) {
+          lineNo = parseInt(lineMatch[1], 10);
+        }
+      }
+
+      const linePrefix = lineNo ? `${lineNo}번째 줄 ` : '';
+
+      // 2. 오류 종류별 맞춤 쉬운 한국어 안내
+      if (raw.includes('SyntaxError')) {
+        return `${linePrefix}문법 오류: 따옴표나 괄호, 쌍점(:)이 빠지거나 잘못 닫히지 않았는지 확인하세요.`;
+      }
+      if (raw.includes('NameError')) {
+        return `${linePrefix}이름 오류: 변수 이름의 철자가 맞는지 확인하세요.`;
+      }
+      if (raw.includes('TypeError')) {
+        return `${linePrefix}자료형 오류: 글자(문자열)와 숫자처럼 서로 다른 종류의 값을 잘못 연산하지 않았는지 확인하세요.`;
+      }
+      if (raw.includes('ValueError')) {
+        return `${linePrefix}값 오류: 숫자로 바꿀 수 없는 글자를 int() 등에 넣지 않았는지 확인하세요.`;
+      }
+      if (raw.includes('IndentationError')) {
+        return `${linePrefix}들여쓰기 오류: 줄 시작 부분의 들여쓰기(공백)가 맞지 않습니다. 불필요한 빈칸을 지워보세요.`;
+      }
+      if (raw.includes('ZeroDivisionError')) {
+        return `${linePrefix}0 나누기 오류: 어떤 값을 0으로 나눌 수 없습니다.`;
+      }
+
+      return `${linePrefix}실행 오류: 코드의 문법과 변수 내용을 다시 한 번 확인해 보세요.`;
+    }
+
+    // =========================================================================
+    // 4. 코랩 노트북(.ipynb) 다운로드 기능
+    // =========================================================================
+    function downloadColabNotebook() {
+      const currentPythonCode = codeArea.value;
+      const notebook = {
+        nbformat: 4,
+        nbformat_minor: 0,
+        metadata: {
+          colab: {
+            name: "ch02_lab.ipynb",
+            provenance: []
+          },
+          kernelspec: {
+            name: "python3",
+            display_name: "Python 3"
+          },
+          language_info: {
+            name: "python"
+          }
+        },
+        cells: [
+          {
+            cell_type: "markdown",
+            metadata: {},
+            source: [
+              "2장 실습실에서 고친 코드입니다. 셀을 실행하면 인원 입력 칸이 나타납니다"
+            ]
+          },
+          {
+            cell_type: "code",
+            metadata: {},
+            execution_count: null,
+            outputs: [],
+            source: currentPythonCode.split('\n').map((line, idx, arr) => idx < arr.length - 1 ? line + '\n' : line)
+          }
+        ]
+      };
+
+      const blob = new Blob([JSON.stringify(notebook, null, 2)], { type: 'application/x-ipynb+json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ch02_lab.ipynb';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // 내려받은 후 안내 문구 표시
+      updatePyStatus('success', '✔ ch02_lab.ipynb를 내려받았습니다. 코랩 [파일] → [노트북 업로드]로 여세요.');
+    }
+
+    // =========================================================================
+    // 5. 브라우저 오프라인/로컬 직접 실행을 위한 내장 경량 파이썬 인터프리터 (Fallback)
+    // =========================================================================
+    function runFallbackInterpreter(code) {
+      const lines = code.split('\n');
+      const scope = {};
+      const outputLines = [];
+      const inputVal = window.getPythonInputValue();
+
+      let conditionMet = true;
+      let ifHandled = false;
+
+      for (let rawLine of lines) {
+        let trimmed = rawLine.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        // input() 프롬프트 감지 및 이름표 변경
+        const inputMatch = trimmed.match(/input\s*\(\s*(['"])(.*?)\1\s*\)/);
+        if (inputMatch) {
+          window.handlePythonInputPrompt(inputMatch[2]);
+        }
+
+        // if 조건문 감지 (예: if booked + people > seat:)
+        const ifMatch = trimmed.match(/^if\s+(.+):$/);
+        if (ifMatch) {
+          let condExpr = ifMatch[1].trim();
+          for (let [k, v] of Object.entries(scope)) {
+            if (typeof v === 'number') {
+              condExpr = condExpr.replace(new RegExp(`\\b${k}\\b`, 'g'), v);
+            }
+          }
+          try {
+            conditionMet = Boolean(Function(`"use strict"; return (${condExpr})`)());
+          } catch (e) {
+            conditionMet = false;
+          }
+          ifHandled = conditionMet;
+          continue;
+        }
+
+        // elif 조건문 감지
+        const elifMatch = trimmed.match(/^elif\s+(.+):$/);
+        if (elifMatch) {
+          if (ifHandled) {
+            conditionMet = false;
+          } else {
+            let condExpr = elifMatch[1].trim();
+            for (let [k, v] of Object.entries(scope)) {
+              if (typeof v === 'number') {
+                condExpr = condExpr.replace(new RegExp(`\\b${k}\\b`, 'g'), v);
+              }
+            }
+            try {
+              conditionMet = Boolean(Function(`"use strict"; return (${condExpr})`)());
+            } catch (e) {
+              conditionMet = false;
+            }
+            if (conditionMet) ifHandled = true;
+          }
+          continue;
+        }
+
+        // else문 감지
+        const elseMatch = trimmed.match(/^else\s*:$/);
+        if (elseMatch) {
+          conditionMet = !ifHandled;
+          continue;
+        }
+
+        // 들여쓰기된 줄은 현재 조건 블록에 따름
+        const isIndented = rawLine.startsWith(' ') || rawLine.startsWith('\t');
+        if (isIndented && !conditionMet) {
+          continue;
+        }
+        if (!isIndented) {
+          conditionMet = true;
+          ifHandled = false;
+        }
+
+        // 변수 할당문: var = expr
+        const assignMatch = trimmed.match(/^([a-zA-Z_]\w*)\s*=\s*(.+)$/);
+        if (assignMatch) {
+          const varName = assignMatch[1];
+          let expr = assignMatch[2].trim();
+
+          if (expr.includes('input(')) {
+            let num = Number(inputVal);
+            scope[varName] = isNaN(num) ? inputVal : num;
+          } else if ((expr.startsWith('"') && expr.endsWith('"')) || (expr.startsWith("'") && expr.endsWith("'"))) {
+            scope[varName] = expr.slice(1, -1);
+          } else {
+            let evalExpr = expr;
+            for (let [k, v] of Object.entries(scope)) {
+              if (typeof v === 'number') {
+                evalExpr = evalExpr.replace(new RegExp(`\\b${k}\\b`, 'g'), v);
+              }
+            }
+            evalExpr = evalExpr.replace(/\bint\s*\(/g, 'Math.floor(');
+            try {
+              if (/^[0-9+\-*/%().\s]+$/.test(evalExpr)) {
+                scope[varName] = Function(`"use strict"; return (${evalExpr})`)();
+              } else {
+                scope[varName] = expr;
+              }
+            } catch (e) {
+              scope[varName] = expr;
+            }
+          }
+          continue;
+        }
+
+        // print() 함수 처리
+        const printMatch = trimmed.match(/^print\s*\((.*)\)$/);
+        if (printMatch) {
+          const argsStr = printMatch[1].trim();
+
+          // f-string 처리: f"..." 또는 f'...'
+          const fstringMatch = argsStr.match(/^f(['"])(.*?)\1$/);
+          if (fstringMatch) {
+            let content = fstringMatch[2];
+            let formatted = content.replace(/\{([^}]+)\}/g, (_, exp) => {
+              let trimmedExp = exp.trim();
+              if (scope.hasOwnProperty(trimmedExp)) {
+                return scope[trimmedExp];
+              }
+              try {
+                let evalExp = trimmedExp;
+                for (let [k, v] of Object.entries(scope)) {
+                  if (typeof v === 'number') {
+                    evalExp = evalExp.replace(new RegExp(`\\b${k}\\b`, 'g'), v);
+                  }
+                }
+                return Function(`"use strict"; return (${evalExp})`)();
+              } catch (e) {
+                return exp;
+              }
+            });
+            outputLines.push(formatted);
+            continue;
+          }
+
+          const parts = [];
+          let cur = '';
+          let inQ = false;
+          let qChar = '';
+          for (let i = 0; i < argsStr.length; i++) {
+            const ch = argsStr[i];
+            if ((ch === '"' || ch === "'") && (i === 0 || argsStr[i - 1] !== '\\')) {
+              if (!inQ) { inQ = true; qChar = ch; }
+              else if (qChar === ch) { inQ = false; }
+            }
+            if (ch === ',' && !inQ) {
+              parts.push(cur.trim());
+              cur = '';
+            } else {
+              cur += ch;
+            }
+          }
+          if (cur.trim()) parts.push(cur.trim());
+
+          const evaluatedParts = parts.map(part => {
+            if ((part.startsWith('"') && part.endsWith('"')) || (part.startsWith("'") && part.endsWith("'"))) {
+              return part.slice(1, -1);
+            }
+            if (scope.hasOwnProperty(part)) {
+              return String(scope[part]);
+            }
+            return part;
+          });
+
+          outputLines.push(evaluatedParts.join(' '));
+          continue;
+        }
+      }
+
+      return {
+        output: outputLines.join('\n'),
+        cname: scope['cname'],
+        price: scope['price'],
+        seat: scope['seat'],
+        booked: scope['booked'],
+        days: scope['days'],
+        discount: scope['discount'],
+        group_discount: scope['group_discount'],
+        scope: scope
+      };
+    }
+
+    // =========================================================================
+    // 6. Pyodide 엔진 초기화 (WebAssembly CPython)
+    // =========================================================================
+    async function initPyodideEngine() {
+      if (isPyodideLoading || isPyodideReady) return;
+      isPyodideLoading = true;
+      updatePyStatus('loading', '파이썬을 준비하고 있습니다...');
+
+      try {
+        if (typeof loadPyodide === 'undefined') {
+          throw new Error('Pyodide CDN 스크립트 대기 중');
+        }
+
+        const pyodide = await loadPyodide({
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+        });
+
+        // 파이썬 내장 I/O 스트림 및 input() 함수 브릿지 설정
+        await pyodide.runPythonAsync(`
+import sys
+import io
+import builtins
+import js
+
+class WebAppStdout(io.StringIO):
+    def __init__(self):
+        super().__init__()
+        self.lines = []
+    
+    def write(self, s):
+        if s:
+            self.lines.append(str(s))
+        return len(s)
+    
+    def flush(self):
+        pass
+
+    def get_output(self):
+        return "".join(self.lines)
+    
+    def clear(self):
+        self.lines = []
+
+_web_stdout = WebAppStdout()
+sys.stdout = _web_stdout
+
+def _custom_input(prompt=""):
+    try:
+        js.handlePythonInputPrompt(str(prompt))
+    except Exception:
+        pass
+    try:
+        val = str(js.getPythonInputValue())
+    except Exception:
+        val = "1"
+    return val
+
+builtins.input = _custom_input
+`);
+
+        pyodideInstance = pyodide;
+        isPyodideReady = true;
+        isPyodideLoading = false;
+        updatePyStatus('success', '✔ 파이썬 코드가 웹앱에 적용되었습니다.');
+
+        // Pyodide 준비 완료 후 1회 동기화 실행
+        await executeCodeWithPyodide(codeArea.value);
+      } catch (err) {
+        console.warn('Pyodide 로드 실패 또는 오프라인 모드:', err);
+        isPyodideLoading = false;
+        updatePyStatus('success', '✔ 파이썬 코드가 웹앱에 적용되었습니다.');
+        runFallbackSync();
+      }
+    }
+
+    // Pyodide로 코드 실행
+    async function executeCodeWithPyodide(code) {
+      if (!pyodideInstance) {
+        return runFallbackInterpreter(code);
+      }
+
+      pyodideInstance.runPython(`_web_stdout.clear()`);
+      await pyodideInstance.runPythonAsync(code);
+      const output = pyodideInstance.runPython(`_web_stdout.get_output()`);
+
+      let cname = null;
+      let price = null;
+      let seat = null;
+      let booked = null;
+
+      try {
+        const cnameVal = pyodideInstance.globals.get('cname');
+        if (cnameVal !== undefined && cnameVal !== null) {
+          cname = String(cnameVal);
+        }
+      } catch (e) {}
+
+      try {
+        const priceVal = pyodideInstance.globals.get('price');
+        if (priceVal !== undefined && priceVal !== null) {
+          price = priceVal;
+        }
+      } catch (e) {}
+
+      try {
+        const seatVal = pyodideInstance.globals.get('seat');
+        if (seatVal !== undefined && seatVal !== null) {
+          seat = Number(seatVal);
+        }
+      } catch (e) {}
+
+      try {
+        const bookedVal = pyodideInstance.globals.get('booked');
+        if (bookedVal !== undefined && bookedVal !== null) {
+          booked = Number(bookedVal);
+        }
+      } catch (e) {}
+
+      let days = null;
+      let discount = null;
+      let group_discount = null;
+
+      try {
+        const dVal = pyodideInstance.globals.get('days');
+        if (dVal !== undefined && dVal !== null) {
+          days = Number(dVal);
+        }
+      } catch (e) {}
+
+      try {
+        const dcVal = pyodideInstance.globals.get('discount');
+        if (dcVal !== undefined && dcVal !== null) {
+          discount = Number(dcVal);
+        }
+      } catch (e) {}
+
+      try {
+        const gdVal = pyodideInstance.globals.get('group_discount');
+        if (gdVal !== undefined && gdVal !== null) {
+          group_discount = Number(gdVal);
+        }
+      } catch (e) {}
+
+      return { output, cname, price, seat, booked, days, discount, group_discount };
+    }
+
+    // =========================================================================
+    // 7. 핵심 실행 함수: [▶ 웹앱에 적용하기] & [계산하기] 버튼 트리거
+    // =========================================================================
+    function updateWebappUIFromPython(resultData) {
+      if (!resultData) return;
+      if (resultData.cname && courseTitle) {
+        courseTitle.textContent = formatCourseTitle(resultData.cname);
+      }
+
+      const currentDays = (resultData.days !== null && resultData.days !== undefined) ? Number(resultData.days) : 35;
+      if (courseDday) {
+        courseDday.textContent = `강좌까지 ${currentDays}일`;
+      }
+
+      const seatNum = (resultData.seat !== null && resultData.seat !== undefined) ? Number(resultData.seat) : 8;
+      const bookedNum = (resultData.booked !== null && resultData.booked !== undefined) ? Number(resultData.booked) : 3;
+      const remainNum = Math.max(0, seatNum - bookedNum);
+      if (seatInfo) {
+        seatInfo.textContent = `정원 ${seatNum}명 · 남은 자리 ${remainNum}석`;
+      }
+
+      // 1. 얼리버드 할인율 결정 (days >= 14: 20%, days >= 7: 10%)
+      let discountRate = 0;
+      let discountLabel = '';
+      if (resultData.discount !== null && resultData.discount !== undefined) {
+        discountRate = Number(resultData.discount);
+      } else if (currentDays >= 14) {
+        discountRate = 0.2;
+      } else if (currentDays >= 7) {
+        discountRate = 0.1;
+      }
+
+      if (discountRate >= 0.2) {
+        discountLabel = '20% 할인';
+      } else if (discountRate >= 0.1) {
+        discountLabel = '10% 할인';
+      }
+
+      const basePrice = (resultData.price !== null && resultData.price !== undefined) ? Number(resultData.price) : 35000;
+
+      if (discountRate > 0) {
+        const discountedPrice = Math.round(basePrice * (1 - discountRate));
+        if (originalPrice) {
+          originalPrice.style.display = 'inline';
+          originalPrice.textContent = formatCoursePrice(basePrice);
+        }
+        if (coursePrice) {
+          coursePrice.textContent = formatCoursePrice(discountedPrice);
+        }
+        if (discountBadge) {
+          discountBadge.style.display = 'inline-flex';
+          discountBadge.textContent = discountLabel;
+        }
+      } else {
+        if (originalPrice) originalPrice.style.display = 'none';
+        if (coursePrice) coursePrice.textContent = formatCoursePrice(basePrice);
+        if (discountBadge) discountBadge.style.display = 'none';
+      }
+    }
+
+    async function runPythonCode() {
+      const code = codeArea.value;
+      runtimeInputCallCount = 0;
+
+      // 1. 실행 전 왼쪽 웹앱 상태 스냅샷 (오류 발생 시 원본 유지 및 변경 여부 대조용)
+      const prevWebappState = {
+        title: courseTitle ? courseTitle.textContent : '',
+        price: coursePrice ? coursePrice.textContent : '',
+        orig: originalPrice ? originalPrice.textContent : '',
+        badge: discountBadge ? discountBadge.textContent : '',
+        dday: courseDday ? courseDday.textContent : '',
+        seat: seatInfo ? seatInfo.textContent : '',
+        label: calcLabel ? calcLabel.textContent : '',
+        resultHtml: resultElem ? resultElem.innerHTML : ''
+      };
+
+      // 2. 추가 input() 및 모듈 import 검사
+      const inputCallMatches = code.match(/input\s*\(/g) || [];
+      const hasExtraInput = inputCallMatches.length > 1;
+
+      // import 모듈 추출 (datetime, date 등 기본 라이브러리는 허용)
+      const importMatches = code.match(/(?:^|\n)\s*(?:import\s+([a-zA-Z0-9_, ]+)|from\s+([a-zA-Z0-9_.]+)\s+import)/);
+      const rawImportedName = importMatches ? (importMatches[1] || importMatches[2]).trim().split(/[,\s]+/)[0] : null;
+      const importedModuleName = (rawImportedName === 'datetime' || rawImportedName === 'date') ? null : rawImportedName;
+
+      // 3. 코드 내에서 새롭게 정의/변경된 비연결 변수 감지 (예: tag = "주말반")
+      const assignedVarMatches = [...code.matchAll(/(?:^|\n)\s*([a-zA-Z_]\w*)\s*=/g)];
+      const unconnectedVars = [];
+      for (let m of assignedVarMatches) {
+        const v = m[1];
+        if (!CONNECTED_VARS.has(v) && !unconnectedVars.includes(v)) {
+          unconnectedVars.push(v);
+        }
+      }
+
+      updatePyStatus('running', '⚡ 파이썬 코드 실행 중...');
+      if (btnApplyCode) btnApplyCode.disabled = true;
+      if (btnCalc) btnCalc.disabled = true;
+
+      try {
+        let resultData = null;
+
+        if (isPyodideReady && pyodideInstance) {
+          resultData = await executeCodeWithPyodide(code);
+        } else {
+          resultData = runFallbackInterpreter(code);
+        }
+
+        // 왼쪽 웹앱 적용
+        displayResult(resultData.output);
+        updateWebappUIFromPython(resultData);
+
+        // 실행 후 왼쪽 웹앱 상태 스냅샷
+        const currWebappState = {
+          title: courseTitle ? courseTitle.textContent : '',
+          price: coursePrice ? coursePrice.textContent : '',
+          orig: originalPrice ? originalPrice.textContent : '',
+          badge: discountBadge ? discountBadge.textContent : '',
+          dday: courseDday ? courseDday.textContent : '',
+          seat: seatInfo ? seatInfo.textContent : '',
+          label: calcLabel ? calcLabel.textContent : '',
+          resultHtml: resultElem ? resultElem.innerHTML : ''
+        };
+
+        const isWebappUnchanged = (
+          prevWebappState.title === currWebappState.title &&
+          prevWebappState.price === currWebappState.price &&
+          prevWebappState.orig === currWebappState.orig &&
+          prevWebappState.badge === currWebappState.badge &&
+          prevWebappState.dday === currWebappState.dday &&
+          prevWebappState.seat === currWebappState.seat &&
+          prevWebappState.label === currWebappState.label &&
+          prevWebappState.resultHtml === currWebappState.resultHtml
+        );
+
+        // =====================================================================
+        // 주황 글씨 조건 확인:
+        // (1) 입력 칸이 없는 추가 input() 사용
+        // (2) 외부 모듈 import 사용
+        // (3) 코드는 실행되었으나 웹앱에서 달라진 것이 없음 (예: tag = "주말반")
+        // =====================================================================
+        if (hasExtraInput || importedModuleName || (isWebappUnchanged && (unconnectedVars.length > 0 || code !== INITIAL_CODE))) {
+          let varInfoHtml = '';
+          if (unconnectedVars.length > 0) {
+            const varTags = unconnectedVars.map(v => `<span class="unconnected-var-pill">${v}</span>`).join(' ');
+            varInfoHtml = `<br><span style="font-size:13px; opacity:0.95;">📌 웹앱과 연결되지 않은 변수: ${varTags}</span>`;
+          } else if (hasExtraInput) {
+            varInfoHtml = `<br><span style="font-size:13px; opacity:0.95;">📌 안내: 현재 웹앱에는 인원 입력 칸 1개만 연결되어 있어 추가 input()은 웹앱에 반영되지 않습니다.</span>`;
+          } else if (importedModuleName) {
+            varInfoHtml = `<br><span style="font-size:13px; opacity:0.95;">📌 안내: import한 모듈(<span class="unconnected-var-pill">${importedModuleName}</span>)은 웹앱에 연결되어 있지 않습니다.</span>`;
+          }
+
+          const orangeNoticeHtml = `코드는 바르게 실행되었지만 왼쪽 웹앱에서 달라진 것이 없습니다. ` +
+            `파이썬 문법이 틀린 것이 아니라, 이 실습실에서 그 부분이 웹앱과 연결되어 있지 않을 뿐입니다. ` +
+            `<button type="button" class="btn-colab-link" onclick="downloadColabNotebook()">⬇ 코랩 노트북으로 받기</button>` +
+            `로 코드를 받아 코랩에서 실행해 결과를 확인해 보세요.` +
+            varInfoHtml;
+
+          updatePyStatus('unconnected', orangeNoticeHtml);
+        } else {
+          // ===================================================================
+          // 실행에 성공하면 초록 글씨
+          // ===================================================================
+          updatePyStatus('success', '✔ 파이썬 코드가 웹앱에 적용되었습니다.');
+        }
+
+      } catch (err) {
+        console.error('Python 실행 에러:', err);
+
+        // 특별 처리: 지원하지 않는 모듈 import로 인한 ModuleNotFoundError인 경우 주황 안내로 처리
+        const rawErr = String(err && (err.message || err) || '');
+        if (rawErr.includes('ModuleNotFoundError') || importedModuleName) {
+          const modName = importedModuleName || '외부 모듈';
+          const orangeNoticeHtml = `코드는 바르게 실행되었지만 왼쪽 웹앱에서 달라진 것이 없습니다. ` +
+            `파이썬 문법이 틀린 것이 아니라, 이 실습실에서 그 부분이 웹앱과 연결되어 있지 않을 뿐입니다. ` +
+            `<button type="button" class="btn-colab-link" onclick="downloadColabNotebook()">⬇ 코랩 노트북으로 받기</button>` +
+            `로 코드를 받아 코랩에서 실행해 결과를 확인해 보세요.` +
+            `<br><span style="font-size:13px; opacity:0.95;">📌 안내: import한 모듈(<span class="unconnected-var-pill">${modName}</span>)은 웹앱에 연결되어 있지 않습니다.</span>`;
+
+          updatePyStatus('unconnected', orangeNoticeHtml);
+        } else {
+          // ===================================================================
+          // 오류 발생 시: 웹앱은 직전 상태 그대로 두고, 빨간 글씨로 안내
+          // "4번째 줄 이름 오류: 변수 이름의 철자가 맞는지 확인하세요" 형태
+          // ===================================================================
+          const formattedErrorMessage = parseAndFormatPythonError(err);
+          updatePyStatus('error', formattedErrorMessage);
+        }
+
+      } finally {
+        if (btnApplyCode) btnApplyCode.disabled = false;
+        if (btnCalc) btnCalc.disabled = false;
+      }
+    }
+
+    // 초기 동기화 헬퍼 (로컬/오프라인 즉시 렌더링)
+    function runFallbackSync() {
+      try {
+        const resultData = runFallbackInterpreter(codeArea.value);
+        displayResult(resultData.output);
+        updateWebappUIFromPython(resultData);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // =========================================================================
+    // 8. [처음 코드로] 버튼 핸들러: 처음 코드로 되돌리고 웹앱 초기화
+    // =========================================================================
+    function resetPythonCode() {
+      codeArea.value = INITIAL_CODE;
+      updateLineNumbers();
+      // 인원 입력칸 기본값 복원
+      if (peopleInput) peopleInput.value = "3";
+      if (calcLabel) calcLabel.textContent = "인원";
+      if (seatInfo) seatInfo.textContent = "정원 8명 · 남은 자리 5석";
+      if (courseDday) courseDday.textContent = "강좌까지 35일";
+      if (originalPrice) {
+        originalPrice.style.display = 'inline';
+        originalPrice.textContent = "35,000원";
+      }
+      if (coursePrice) coursePrice.textContent = "28,000원";
+      if (discountBadge) {
+        discountBadge.style.display = 'inline-flex';
+        discountBadge.textContent = "20% 할인";
+      }
+      // 즉시 실행하여 웹앱과 결과 자리도 처음 상태로 복원
+      runPythonCode();
+    }
+
+    // =========================================================================
+    // 9. 에디터 줄 번호 동기화, 단축키 및 편의 기능
+    // =========================================================================
+    function updateLineNumbers() {
+      const lines = codeArea.value.split('\n').length;
+      const count = Math.max(lines, 6);
+      let spans = '';
+      for (let i = 1; i <= count; i++) {
+        spans += `<span>${i}</span>`;
+      }
+      lineNumbers.innerHTML = spans;
+    }
+
+    function syncScroll() {
+      lineNumbers.scrollTop = codeArea.scrollTop;
+    }
+
+    codeArea.addEventListener('input', () => {
+      updateLineNumbers();
+      const match = codeArea.value.match(/input\s*\(\s*(['"])(.*?)\1\s*\)/);
+      if (match) {
+        window.handlePythonInputPrompt(match[2]);
+      }
+    });
+
+    codeArea.addEventListener('scroll', syncScroll);
+
+    // Tab 키 입력 시 4칸 공백 들여쓰기
+    codeArea.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+        updateLineNumbers();
+      }
+      // Ctrl + Enter 또는 Cmd + Enter 시 바로 실행
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runPythonCode();
+      }
+    });
+
+    // 인원 입력창에서 Enter 키 누르면 바로 파이썬 코드 실행
+    if (peopleInput) {
+      peopleInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runPythonCode();
+        }
+      });
+    }
+
+    function copyPythonCode() {
+      navigator.clipboard.writeText(codeArea.value).then(() => {
+        alert("파이썬 코드가 클립보드에 복사되었습니다!");
+      }).catch(() => {
+        codeArea.select();
+        document.execCommand('copy');
+        alert("파이썬 코드가 복사되었습니다!");
+      });
+    }
+
+    // =========================================================================
+    // 10. 페이지 초기화
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      updateLineNumbers();
+      runFallbackSync();
+      initPyodideEngine();
+    });
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      updateLineNumbers();
+      runFallbackSync();
+      initPyodideEngine();
+    }
+  </script>
+</body>
+</html>
