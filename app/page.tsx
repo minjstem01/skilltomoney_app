@@ -34,12 +34,11 @@ export default function Home() {
   const [detailCourse, setDetailCourse] = useState<Course | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 예약 폼 상태
+  // 예약 폼 상태 (이름, 연락처, 인원, 제출 중 여부)
   const [userName, setUserName] = useState("");
   const [userPhone, setUserPhone] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [headcount, setHeadcount] = useState<number | string>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [reservationCode, setReservationCode] = useState("");
 
   // 필터링된 강좌 목록: 파이썬 규칙 (only_open and left == 0: continue) 적용
   const displayedCourses = courses.filter((course) => {
@@ -59,10 +58,10 @@ export default function Home() {
     }
     setSelectedCourse(course);
     setDetailCourse(null);
-    setIsSubmitted(false);
     setUserName("");
     setUserPhone("");
-    setReservationCode("");
+    setHeadcount(1);
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
@@ -70,44 +69,52 @@ export default function Home() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedCourse(null);
-    setIsSubmitted(false);
+    setUserName("");
+    setUserPhone("");
+    setHeadcount(1);
+    setIsSubmitting(false);
   };
 
-  // 예약 폼 제출 핸들러 (실시간 잔여 좌석 차감)
-  const handleSubmitReservation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userName.trim() || !userPhone.trim() || !selectedCourse) {
+  // [신청] 버튼 클릭 핸들러: Next.js 서버 쪽 API(app/api/reserve) 호출
+  const handleApplyReservation = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!selectedCourse) return;
+
+    if (!userName.trim() || !userPhone.trim()) {
       alert("이름과 연락처를 모두 입력해 주세요.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const res = await fetch("/api/reservations", {
+      const res = await fetch("/api/reserve", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          courseName: selectedCourse.name,
-          price: selectedCourse.price,
-          userName: userName.trim(),
-          userPhone: userPhone.trim(),
+          date: selectedCourse.date,
+          course: selectedCourse.name,
+          name: userName.trim(),
+          phone: userPhone.trim(),
+          people: Number(headcount) || 1,
         }),
       });
 
       const json = await res.json();
       if (json.success) {
+        alert("예약 신청이 성공적으로 접수되었습니다!");
         setCourses((prev) =>
           prev.map((c) =>
             c.id === selectedCourse.id
-              ? { ...c, booked: Math.min(c.seat, c.booked + 1) }
+              ? { ...c, booked: Math.min(c.seat, c.booked + (Number(headcount) || 1)) }
               : c
           )
         );
-
-        setReservationCode(`STM-${Date.now().toString().slice(-6)}`);
-        setIsSubmitted(true);
+        handleCloseModal();
       } else {
-        alert(json.message || "예약에 실패했습니다.");
+        alert(json.message || "예약 신청에 실패했습니다.");
       }
     } catch {
       alert("서버 연결에 실패했습니다. 다시 시도해 주세요.");
@@ -549,121 +556,126 @@ export default function Home() {
         </div>
       )}
 
-      {/* 7. [예약하기] 모달 팝업 */}
+      {/* 7. 예약 신청 창 (모달) */}
       {isModalOpen && selectedCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseModal();
+          }}
+        >
           <div className="relative w-full max-w-md bg-[#0F1C3F] border border-amber-400/40 rounded-2xl p-6 sm:p-8 shadow-2xl text-left">
             <button
               onClick={handleCloseModal}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold cursor-pointer transition-colors"
+              aria-label="닫기"
             >
               ✕
             </button>
 
-            {isSubmitted ? (
-              <div className="py-6 text-center">
-                <div className="text-5xl mb-3">🎉</div>
-                <h3 className="text-xl font-bold text-white mb-2">예약 신청이 접수되었습니다!</h3>
-                <div className="inline-block px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 font-mono text-xs font-bold mb-3">
-                  예약 번호: {reservationCode}
-                </div>
-                <p className="text-sm text-slate-300 leading-relaxed mb-4 break-keep">
-                  신청하신 <strong className="text-amber-400">[{selectedCourse.name}]</strong> 클래스 안내 문자가 입력하신 연락처(<strong>{userPhone}</strong>)로 발송됩니다.
-                </p>
-                <div className="p-3 bg-black/40 rounded-xl border border-white/10 text-xs text-slate-300 mb-6">
-                  ✨ 일자: <strong>{selectedCourse.date}</strong> | 방금 예약으로 <strong>잔여 좌석이 1석 차감</strong>되었습니다. 관리자 대시보드(<strong>/admin</strong>)에서 신청 내역을 바로 확인하실 수 있습니다.
-                </div>
+            <div className="mb-6">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                예약 신청
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-white mt-2">
+                예약 신청
+              </h2>
+            </div>
+
+            <form onSubmit={handleApplyReservation} className="space-y-4">
+              {/* 강좌 이름 (카드에서 자동 채움) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  강좌 이름
+                </label>
+                <input
+                  type="text"
+                  value={selectedCourse.name}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-black/50 border border-white/10 text-amber-300 font-medium text-sm cursor-not-allowed focus:outline-none select-none"
+                />
+              </div>
+
+              {/* 날짜 (카드에서 자동 채움) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  날짜
+                </label>
+                <input
+                  type="text"
+                  value={selectedCourse.date}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-black/50 border border-white/10 text-amber-300 font-medium text-sm cursor-not-allowed focus:outline-none select-none"
+                />
+              </div>
+
+              {/* 이름 */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  이름
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="이름을 입력하세요"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* 연락처 */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  연락처
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="010-1234-5678"
+                  value={userPhone}
+                  onChange={(e) => setUserPhone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* 인원(숫자) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  인원(숫자)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="1"
+                  value={headcount}
+                  onChange={(e) =>
+                    setHeadcount(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* 하단 [신청]과 [닫기] 버튼 */}
+              <div className="flex items-center gap-3 pt-3">
                 <button
-                  onClick={handleCloseModal}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold transition-all cursor-pointer"
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  확인
+                  {isSubmitting ? "신청 중..." : "신청"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleCloseModal}
+                  className="flex-1 py-3 px-4 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition-colors cursor-pointer text-center disabled:opacity-50"
+                >
+                  닫기
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="mb-5">
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                    클래스 예약
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-bold text-white mt-2 break-keep">
-                    {selectedCourse.name}
-                  </h3>
-                  {/* 강좌 이름 바로 아래 태그 배지 */}
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5 mb-2">
-                    {selectedCourse.tags?.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-400/15 text-amber-300 border border-amber-400/30"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="text-slate-400">
-                      일시: <strong className="text-amber-300">{selectedCourse.date}</strong>
-                    </span>
-                    <span className="text-slate-400">
-                      남은 좌석:{" "}
-                      <strong className="text-amber-300 font-bold">
-                        {selectedCourse.seat - selectedCourse.booked}석 / 정원 {selectedCourse.seat}명
-                      </strong>
-                    </span>
-                  </div>
-                  <div className="text-right mt-1">
-                    <span className="text-base font-bold text-amber-400">
-                      {selectedCourse.price.toLocaleString()}원
-                    </span>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmitReservation} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-200 mb-1">
-                      예약자 성함 <span className="text-amber-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="홍길동"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-200 mb-1">
-                      연락처 (휴대폰 번호) <span className="text-amber-400">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="010-1234-5678"
-                      value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 leading-tight">
-                    * 작성해주신 연락처로 클래스 장소 및 준비물 안내 문자가 발송됩니다.
-                  </p>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold text-base transition-all shadow-lg shadow-amber-500/20 active:scale-95 cursor-pointer mt-2 disabled:opacity-50"
-                  >
-                    {isSubmitting
-                      ? "예약 접수 중..."
-                      : `${selectedCourse.price.toLocaleString()}원 예약 확정하기`}
-                  </button>
-                </form>
-              </>
-            )}
+            </form>
           </div>
         </div>
       )}
