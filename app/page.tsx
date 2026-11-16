@@ -34,11 +34,13 @@ export default function Home() {
   const [detailCourse, setDetailCourse] = useState<Course | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 예약 폼 상태 (이름, 연락처, 인원, 제출 중 여부)
+  // 예약 폼 상태 (이름, 연락처, 인원, 제출 중 여부, 안내 문구)
   const [userName, setUserName] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [headcount, setHeadcount] = useState<number | string>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [guideMessage, setGuideMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
 
   // 필터링된 강좌 목록: 파이썬 규칙 (only_open and left == 0: continue) 적용
   const displayedCourses = courses.filter((course) => {
@@ -62,6 +64,7 @@ export default function Home() {
     setUserPhone("");
     setHeadcount(1);
     setIsSubmitting(false);
+    setGuideMessage("");
     setIsModalOpen(true);
   };
 
@@ -73,6 +76,7 @@ export default function Home() {
     setUserPhone("");
     setHeadcount(1);
     setIsSubmitting(false);
+    setGuideMessage("");
   };
 
   // [신청] 버튼 클릭 핸들러: Next.js 서버 쪽 API(app/api/reserve) 호출
@@ -81,10 +85,41 @@ export default function Home() {
 
     if (!selectedCourse) return;
 
-    if (!userName.trim() || !userPhone.trim()) {
-      alert("이름과 연락처를 모두 입력해 주세요.");
+    // 1. 이름이 비어 있는지 검사
+    if (!userName.trim()) {
+      const msg = "이름을 입력해 주세요.";
+      setGuideMessage(msg);
+      alert(msg);
       return;
     }
+
+    // 2. 인원이 남은 자리보다 많은지 검사
+    const remainingSeats = selectedCourse.seat - selectedCourse.booked;
+    const peopleCount = Number(headcount);
+
+    if (!peopleCount || peopleCount < 1) {
+      const msg = "인원은 1명 이상이어야 합니다.";
+      setGuideMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    if (peopleCount > remainingSeats) {
+      const msg = `신청 인원이 남은 자리(${remainingSeats}석)보다 많습니다.`;
+      setGuideMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    // 3. 연락처 검사
+    if (!userPhone.trim()) {
+      const msg = "연락처를 입력해 주세요.";
+      setGuideMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    setGuideMessage("");
 
     try {
       setIsSubmitting(true);
@@ -98,26 +133,33 @@ export default function Home() {
           course: selectedCourse.name,
           name: userName.trim(),
           phone: userPhone.trim(),
-          people: Number(headcount) || 1,
+          people: peopleCount,
         }),
       });
 
       const json = await res.json();
       if (json.success) {
-        alert("예약 신청이 성공적으로 접수되었습니다!");
+        alert("예약 신청이 완료되었습니다");
+        setToastMessage("예약 신청이 완료되었습니다");
+        setTimeout(() => setToastMessage(""), 4000);
+
         setCourses((prev) =>
           prev.map((c) =>
             c.id === selectedCourse.id
-              ? { ...c, booked: Math.min(c.seat, c.booked + (Number(headcount) || 1)) }
+              ? { ...c, booked: Math.min(c.seat, c.booked + peopleCount) }
               : c
           )
         );
         handleCloseModal();
       } else {
-        alert(json.message || "예약 신청에 실패했습니다.");
+        const errorMsg = json.message || "예약 신청에 실패했습니다.";
+        setGuideMessage(errorMsg);
+        alert(errorMsg);
       }
     } catch {
-      alert("서버 연결에 실패했습니다. 다시 시도해 주세요.");
+      const networkMsg = "서버 연결에 실패했습니다. 다시 시도해 주세요.";
+      setGuideMessage(networkMsg);
+      alert(networkMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -150,6 +192,14 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* 예약 성공 알림 토스트 배너 */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-emerald-600 border border-emerald-400/50 text-white font-bold text-sm shadow-2xl flex items-center gap-2.5">
+          <span className="text-lg">🎉</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* 2. 메인 컨텐츠 영역 */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-12 sm:py-20 text-center">
@@ -582,7 +632,7 @@ export default function Home() {
               </h2>
             </div>
 
-            <form onSubmit={handleApplyReservation} className="space-y-4">
+            <form onSubmit={handleApplyReservation} noValidate className="space-y-4">
               {/* 강좌 이름 (카드에서 자동 채움) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -612,14 +662,16 @@ export default function Home() {
               {/* 이름 */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  이름
+                  이름 <span className="text-amber-400">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="이름을 입력하세요"
                   value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  onChange={(e) => {
+                    setUserName(e.target.value);
+                    if (guideMessage) setGuideMessage("");
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
@@ -627,35 +679,50 @@ export default function Home() {
               {/* 연락처 */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  연락처
+                  연락처 <span className="text-amber-400">*</span>
                 </label>
                 <input
                   type="tel"
-                  required
                   placeholder="010-1234-5678"
                   value={userPhone}
-                  onChange={(e) => setUserPhone(e.target.value)}
+                  onChange={(e) => {
+                    setUserPhone(e.target.value);
+                    if (guideMessage) setGuideMessage("");
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
 
               {/* 인원(숫자) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  인원(숫자)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    인원(숫자) <span className="text-amber-400">*</span>
+                  </label>
+                  <span className="text-xs text-amber-400 font-medium">
+                    (남은 자리: {selectedCourse.seat - selectedCourse.booked}석)
+                  </span>
+                </div>
                 <input
                   type="number"
                   min={1}
-                  required
                   placeholder="1"
                   value={headcount}
-                  onChange={(e) =>
-                    setHeadcount(e.target.value === "" ? "" : Number(e.target.value))
-                  }
+                  onChange={(e) => {
+                    setHeadcount(e.target.value === "" ? "" : Number(e.target.value));
+                    if (guideMessage) setGuideMessage("");
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-lg bg-black/40 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
+
+              {/* 안내 문구 표시 영역 */}
+              {guideMessage && (
+                <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{guideMessage}</span>
+                </div>
+              )}
 
               {/* 하단 [신청]과 [닫기] 버튼 */}
               <div className="flex items-center gap-3 pt-3">
@@ -664,7 +731,7 @@ export default function Home() {
                   disabled={isSubmitting}
                   className="flex-1 py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? "신청 중..." : "신청"}
+                  {isSubmitting ? "저장 중..." : "신청"}
                 </button>
                 <button
                   type="button"

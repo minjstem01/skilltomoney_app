@@ -37,22 +37,43 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { date, course, name, phone, people } = body;
 
-    // 1. 필수 입력값 검증
-    if (!name || !phone) {
+    // 1. 필수 입력값 검증 (이름 비어 있는지 확인)
+    if (!name || !String(name).trim()) {
       return NextResponse.json(
-        { success: false, message: "이름과 연락처를 모두 입력해 주세요." },
+        { success: false, message: "이름을 입력해 주세요." },
         { status: 400 }
       );
     }
 
-    // 2. 강좌 데이터에서 수강료를 조회하여 결제 금액(total) 계산
-    // 결제 금액(total)은 화면이 보낸 값이 아니라 서버가 강좌 데이터의 수강료 × 인원으로 계산
+    if (!phone || !String(phone).trim()) {
+      return NextResponse.json(
+        { success: false, message: "연락처를 입력해 주세요." },
+        { status: 400 }
+      );
+    }
+
+    // 2. 강좌 데이터에서 잔여 좌석 및 수강료 조회
     const matchedCourse = courses.find(
       (c: any) => c.name === course || c.id === course
     );
 
-    const unitPrice = matchedCourse ? matchedCourse.price : 0;
     const peopleCount = Math.max(1, parseInt(String(people), 10) || 1);
+
+    // 인원이 남은 자리보다 많은지 검증
+    if (matchedCourse) {
+      const remainingSeats = matchedCourse.seat - matchedCourse.booked;
+      if (peopleCount > remainingSeats) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `신청 인원이 남은 자리(${remainingSeats}석)보다 많습니다.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const unitPrice = matchedCourse ? matchedCourse.price : 0;
     const total = unitPrice * peopleCount;
 
     // 최종 전송할 데이터 구성
@@ -103,7 +124,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "예약 신청이 성공적으로 전달되었습니다.",
+      message: "예약 신청이 완료되었습니다",
       data: reserveData,
       sheetResult,
     });
@@ -118,3 +139,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
